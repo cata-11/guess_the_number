@@ -13,6 +13,7 @@ clients_sockets = []
 clients_addresses = []
 
 player_vs_computer_game_scores = []
+player_vs_player_game_scores = []
 
 
 def register_player(socket, address):
@@ -34,11 +35,7 @@ def send_message(client_socket, message):
 
 def connect_players():
     print("Waiting for players to connect...")
-    server_socket.settimeout(None)
 
-    print('all:')
-    for client_socket in clients_sockets:
-        print(client_socket)
     while True:    
         client_socket, client_address = server_socket.accept()
 
@@ -50,18 +47,18 @@ def connect_players():
             client_socket, client_address = server_socket.accept()
 
             register_player(client_socket, client_address)
-
-            sleep(2)
+            sleep(1)
 
             send_message_to_all("Player found. Game is starting...")
-
+            server_socket.settimeout(None)
             start_game_between_two_players()
             break
 
         except socket.timeout:
-            send_message(clients_sockets[0], 'Player not foound. The game will start between you and the computer...')
+            send_message(clients_sockets[0], 'Player not found. The game will start between you and the computer...')
+            server_socket.settimeout(None)
             start_game_between_player_and_computer()
-
+            break
 
 def send_score(client_socket):
     best_score = min(player_vs_computer_game_scores)
@@ -80,7 +77,7 @@ def handle_confirm_answer(message, client_socket, nr_of_tries):
         if(message.upper() == 'EXIT'):
             handle_player_exit(client_socket)
             connect_players()
-            break
+            return False
         
         if(message.upper() == 'Y'):
             player_vs_computer_game_scores.append(nr_of_tries)
@@ -91,7 +88,8 @@ def handle_confirm_answer(message, client_socket, nr_of_tries):
             send_score(client_socket)
             handle_player_exit(client_socket)
             connect_players()
-            break
+            return False
+
         else:
             send_message(client_socket, 'You must enter Y or N')
 
@@ -101,7 +99,7 @@ def handle_message(message, client_socket):
         if(message.upper() == 'EXIT'):
             handle_player_exit(client_socket)
             connect_players()
-            break
+            return False
         else:
             result = try_parse_int(message)
 
@@ -118,6 +116,16 @@ def handle_player_exit(client_socket):
     player_vs_computer_game_scores.clear()
     client_socket.close()
     print('Player has exited the game. Server is waiting for new connections...')
+
+
+def handle_players_exit():
+    for client_socket in clients_sockets:
+        client_socket.close()
+        
+    clients_sockets.clear()
+
+    print('Player 1 has exited the game. Server is waiting for new connections...')
+    print('Player 2 has exited the game. Server is waiting for new connections...')
 
 
 def handle_guess_message(number, client_socket):
@@ -140,14 +148,21 @@ def start_game_between_player_and_computer():
     while True:
         message = client_socket.recv(1024).decode('utf-8')
         number = handle_message(message, client_socket)
+
+        if(number == False):
+            break
+
         nr_of_tries += 1
 
         if(number == random_number):
             send_message(client_socket, 'You have guessed the number.\nDo you want to play again? (Y/N)')
             
             message = client_socket.recv(1024).decode('utf-8')
-            handle_confirm_answer(message, client_socket, nr_of_tries)
-                
+            confirm = handle_confirm_answer(message, client_socket, nr_of_tries)
+
+            if(confirm == False):
+                break
+
         elif(number > random_number):
             send_message(client_socket, 'The number is lower than the one you have chosen.')
 
@@ -156,7 +171,54 @@ def start_game_between_player_and_computer():
 
 
 def start_game_between_two_players():
+    nr_of_tries = 0
     print('Game is starting between two players...')
 
+    client_socket_1 = clients_sockets[0]
+    client_socket_2 = clients_sockets[1]
+
+    send_message(client_socket_1, 'You will choose a number between 1 and 50.')
+    send_message(client_socket_2, 'You will guess the number chosen by player 1.')
+
+    message = client_socket_1.recv(1024).decode('utf-8')
+    result = try_parse_int(message)
+    number_choosen_by_player_1 = 0
+
+    if(result[1]):
+        number_choosen_by_player_1 = result[0]
+
+    send_message(client_socket_2, 'Player 1 has chosen a number. Try to guess it...')
+
+    while True:
+        message = client_socket_2.recv(1024).decode('utf-8')
+        number = int(message)
+        nr_of_tries += 1
+
+        if(number == number_choosen_by_player_1):
+            send_message(client_socket_2, 'You have guessed the number.\nDo you want to play again? (Y/N)')
+            send_message(client_socket_1, 'Player 2 has guessed the number.\nDo you want to play again? (Y/N)')
+            
+            message1 = client_socket_2.recv(1024).decode('utf-8')
+            message2 = client_socket_1.recv(1024).decode('utf-8')
+
+            if(message1.upper() == 'Y' and message2.upper() == 'Y'):
+                player_vs_player_game_scores.append(nr_of_tries)
+                start_game_between_two_players()
+                break
+            else:
+                player_vs_player_game_scores.append(nr_of_tries)
+                send_message_to_all("Not enough players to start a new game.\n" + "Best Score: " + str(min(player_vs_player_game_scores)))
+                handle_players_exit()
+                connect_players()
+                break
+            
+        elif(number > number_choosen_by_player_1):
+            send_message(client_socket_1, "Player 2 chose a number lower than the one you have chosen.")
+            send_message(client_socket_2, 'The number is lower than the one you have chosen.')
+
+        elif(number < number_choosen_by_player_1):
+            send_message(client_socket_1, "Player 2 chose a number higher than the one you have chosen.")
+            send_message(client_socket_2, 'The number is higher than the one you have chosen.')
+    
 
 connect_players()
