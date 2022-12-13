@@ -18,6 +18,7 @@ player_vs_computer_game_scores = []
 def register_player(socket, address):
     clients_sockets.append(socket)
     clients_addresses.append(address)
+    print("Player connected...")
     send_message(socket, 'You are connected')
     send_message(socket, 'Waiting for any other player to connect...')
 
@@ -35,6 +36,9 @@ def connect_players():
     print("Waiting for players to connect...")
     server_socket.settimeout(None)
 
+    print('all:')
+    for client_socket in clients_sockets:
+        print(client_socket)
     while True:    
         client_socket, client_address = server_socket.accept()
 
@@ -50,13 +54,12 @@ def connect_players():
             sleep(2)
 
             send_message_to_all("Player found. Game is starting...")
-            
+
             start_game_between_two_players()
             break
 
         except socket.timeout:
             send_message(clients_sockets[0], 'Player not foound. The game will start between you and the computer...')
-
             start_game_between_player_and_computer()
 
 
@@ -74,6 +77,11 @@ def try_parse_int(value):
 
 def handle_confirm_answer(message, client_socket, nr_of_tries):
     while True:
+        if(message.upper() == 'EXIT'):
+            handle_player_exit(client_socket)
+            connect_players()
+            break
+        
         if(message.upper() == 'Y'):
             player_vs_computer_game_scores.append(nr_of_tries)
             start_game_between_player_and_computer()
@@ -83,6 +91,7 @@ def handle_confirm_answer(message, client_socket, nr_of_tries):
             send_score(client_socket)
             handle_player_exit(client_socket)
             connect_players()
+            break
         else:
             send_message(client_socket, 'You must enter Y or N')
 
@@ -91,23 +100,24 @@ def handle_message(message, client_socket):
     while True:
         if(message.upper() == 'EXIT'):
             handle_player_exit(client_socket)
-
-        result = try_parse_int(message)
-
-        if(result[1]):
-            return handle_guess_message(result[0], client_socket)
-
+            connect_players()
+            break
         else:
-            send_message(client_socket, 'You must enter a number between 1 and 50')
-            message = client_socket.recv(1024).decode('utf-8')
+            result = try_parse_int(message)
 
+            if(result[1]):
+                return handle_guess_message(result[0], client_socket)
+
+            else:
+                send_message(client_socket, 'You must enter a number between 1 and 50')
+                message = client_socket.recv(1024).decode('utf-8')
 
 
 def handle_player_exit(client_socket):
+    clients_sockets.pop(0)
+    player_vs_computer_game_scores.clear()
     client_socket.close()
     print('Player has exited the game. Server is waiting for new connections...')
-    clients_sockets.remove(client_socket)
-    player_vs_computer_game_scores.clear()
 
 
 def handle_guess_message(number, client_socket):
@@ -116,7 +126,6 @@ def handle_guess_message(number, client_socket):
             return number
         else:
             send_message(client_socket, 'You must enter a number between 1 and 50')
-
 
 
 def start_game_between_player_and_computer():
@@ -148,7 +157,6 @@ def start_game_between_player_and_computer():
 
 def start_game_between_two_players():
     print('Game is starting between two players...')
-
 
 
 connect_players()

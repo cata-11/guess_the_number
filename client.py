@@ -27,19 +27,26 @@ def try_parse_int(value):
 def get_guess_input():
     while True:
         input_number = input("Your guess: ")
-        result = try_parse_int(input_number)
 
-        if(result[1] and result[0] > 0 and result[0] < 51):
-            return result[0]
+        if(input_number.upper() == 'EXIT'):
+            handle_player_exit()
         else:
-            print("You must enter a number between 1 and 50")
+            result = try_parse_int(input_number)
+
+            if(result[1] and result[0] > 0 and result[0] < 51):
+                return result[0]
+            else:
+                print("You must enter a number between 1 and 50")
 
 
 def get_answer_input():
     while True:
         input_answer = input("Your answer: ")
 
-        if(input_answer.upper() == 'Y' or input_answer.upper() == 'N'):
+        if(input_answer.upper() == 'EXIT'):
+            handle_player_exit()
+
+        elif(input_answer.upper() == 'Y' or input_answer.upper() == 'N'):
             return input_answer
         else:
             print("You must enter Y or N")
@@ -76,8 +83,8 @@ def handle_confirm_answer():
             print("You must enter Y or N")
 
 
-
 def handle_player_exit():
+    send_message(client_socket, 'EXIT')
     client_socket.close()
     print('You have exited the game.')
     exit(0)
