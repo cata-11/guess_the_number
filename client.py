@@ -7,6 +7,7 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 
 def connect_player():
+
     client_socket.connect((HOST, PORT))
 
     while True:
@@ -139,7 +140,17 @@ def play_role_1(message):
         print(message)
 
         if(message == 'Player 2 has guessed the number.\nDo you want to play again? (Y/N)'):
-            handle_confirm_answer(start_game_between_two_players, "pvp")
+            message = get_answer_input().upper()
+
+            if(message == 'Y'):
+                send_message(client_socket, message)
+                start_game_between_two_players()
+
+            if(message == 'N'):
+                send_message(client_socket, message)
+                message = client_socket.recv(1024).decode('utf-8')
+                print(message)
+                handle_player_exit()
 
 
 def play_role_2(message):
@@ -153,7 +164,17 @@ def play_role_2(message):
         print(message)
 
         if(message == 'You have guessed the number.\nDo you want to play again? (Y/N)'):
-            handle_confirm_answer(start_game_between_two_players, "pvp")
+            message = get_answer_input().upper()
+
+            if(message == 'Y'):
+                send_message(client_socket, message)
+                start_game_between_two_players()
+
+            if(message == 'N'):
+                send_message(client_socket, message)
+                message = client_socket.recv(1024).decode('utf-8')
+                print(message)
+                handle_player_exit()
 
 
 connect_player()
